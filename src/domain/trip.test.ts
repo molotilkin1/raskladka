@@ -41,6 +41,7 @@ describe('createTrip', () => {
       dayCount: 13,
       participants: [],
       products: [],
+      norms: [],
       rings: [{ id: 'ring-1', title: 'Кольцо 1', firstDay: 1, lastDay: 13, drop: false }],
     })
   })

@@ -45,6 +45,10 @@ function validateTrip(value: unknown): Trip {
     throw new Error('В файле отсутствует список колец.')
   }
 
+  if (candidate.norms !== undefined && !Array.isArray(candidate.norms)) {
+    throw new Error('В файле некорректный список норм.')
+  }
+
   for (const participant of candidate.participants) {
     if (!isRecord(participant)) {
       throw new Error('В файле некорректный участник.')
@@ -96,6 +100,10 @@ function validateTrip(value: unknown): Trip {
     participants: structuredClone(candidate.participants) as Trip['participants'],
     products: structuredClone(candidate.products) as Trip['products'],
     rings: structuredClone(candidate.rings) as Trip['rings'],
+    norms:
+      candidate.norms === undefined
+        ? undefined
+        : (structuredClone(candidate.norms) as Trip['norms']),
   }
 
   return trip

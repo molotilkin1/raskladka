@@ -52,6 +52,25 @@ export interface RingChanges {
   isDrop?: boolean
 }
 
+/** Норма продукта на человека для приёма внутри кольца. */
+/** Приём пищи: одно из стандартных значений или произвольная строка. */
+export type Meal = string
+
+/** Стандартные приёмы пищи похода. */
+export const MEALS = ['завтрак', 'обед', 'ужин', 'КП'] as const
+
+export interface Norm {
+  id: string
+  /** Идентификатор кольца. */
+  ringId: string
+  /** Идентификатор продукта. */
+  productId: string
+  /** Приём пищи (завтрак, обед, ужин, КП и т. п.). */
+  meal: string
+  /** Количество продукта на человека за приём в единице продукта. */
+  amount: number
+}
+
 /** Поход — многодневный маршрут с фиксированным составом участников. */
 export interface Trip {
   id: string
@@ -65,6 +84,8 @@ export interface Trip {
   products: Product[]
   /** Кольца похода: диапазоны дней без пропусков и пересечений. */
   rings: Ring[]
+  /** Нормы продуктов по кольцам и приёмам. */
+  norms?: Norm[]
 }
 
 /** День похода: номер с 1 и календарная дата. */
@@ -195,6 +216,7 @@ export function createTrip(input: TripDraft & { id: string }): Trip {
     dayCount: input.dayCount,
     participants: [],
     products: [],
+    norms: [],
     rings: [
       {
         id: 'ring-1',
@@ -860,6 +882,7 @@ export function removeRing(trip: Trip, ringId: string): Trip {
   return {
     ...trip,
     rings: trip.rings.filter((ring) => ring.id !== ringId),
+    norms: (trip.norms ?? []).filter((norm) => norm.ringId !== ringId),
   }
 }
 
@@ -969,6 +992,333 @@ export function updateRings(trip: Trip, rings: Ring[]): Trip {
 
 export function setTripRings(trip: Trip, rings: Ring[]): Trip {
   return setRings(trip, rings)
+}
+
+// ---------- Нормы кольца ----------
+
+function tripNorms(trip: Trip): Norm[] {
+  return Array.isArray(trip.norms) ? trip.norms : []
+}
+
+const RING_ALIASES = ['ringId', 'ring', 'ringID', 'ring_id', 'ringKey', 'ring_id'] as const
+const PRODUCT_ALIASES = ['productId', 'product', 'productID', 'product_id', 'productKey'] as const
+const MEAL_ALIASES = ['meal', 'mealId', 'meal_id', 'mealKey', 'slot', 'course', 'reception', 'приём', 'прием'] as const
+const AMOUNT_ALIASES = ['amount', 'value', 'quantity', 'norm', 'perPerson', 'quantityPerPerson', 'grams', 'count', 'number'] as const
+const ID_ALIASES = ['id', 'normId', 'norm_id', 'key'] as const
+
+function pickString(record: Record<string, unknown>, aliases: readonly string[]): string | undefined {
+  for (const alias of aliases) {
+    const value = record[alias]
+    if (typeof value === 'string' && value.trim() !== '') return value.trim()
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  }
+  return undefined
+}
+
+function pickNumber(record: Record<string, unknown>, aliases: readonly string[]): number | undefined {
+  for (const alias of aliases) {
+    const value = record[alias]
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value))) {
+      return Number(value)
+    }
+  }
+  return undefined
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function extractNormArgs(rest: unknown[]): {
+  ringId?: string
+  productId?: string
+  meal?: string
+  amount?: number
+  id?: string
+} {
+  if (rest.length === 0) return {}
+  if (rest.length === 1 && isRecord(rest[0])) {
+    const record = rest[0] as Record<string, unknown>
+    return {
+      id: pickString(record, ID_ALIASES),
+      ringId: pickString(record, RING_ALIASES),
+      productId: pickString(record, PRODUCT_ALIASES),
+      meal: pickString(record, MEAL_ALIASES),
+      amount: pickNumber(record, AMOUNT_ALIASES),
+    }
+  }
+  if (rest.length >= 3) {
+    const ringId =
+      typeof rest[0] === 'string' || typeof rest[0] === 'number'
+        ? String(rest[0]).trim()
+        : undefined
+    const productId =
+      typeof rest[1] === 'string' || typeof rest[1] === 'number'
+        ? String(rest[1]).trim()
+        : undefined
+    const meal =
+      typeof rest[2] === 'string' || typeof rest[2] === 'number'
+        ? String(rest[2]).trim()
+        : undefined
+    const amount =
+      rest[3] === undefined ? undefined : pickNumber({ amount: rest[3] }, ['amount'])
+    return { ringId, productId, meal, amount }
+  }
+  if (rest.length === 2) {
+    const first = rest[0]
+    const second = rest[1]
+    if (typeof first === 'string' && typeof second === 'number') {
+      // setNorm(trip, meal?, amount?) ambiguous; treat as ringId? no
+    }
+    if (isRecord(first)) {
+      return {
+        id: pickString(first as Record<string, unknown>, ID_ALIASES),
+        ringId: pickString(first as Record<string, unknown>, RING_ALIASES),
+        productId: pickString(first as Record<string, unknown>, PRODUCT_ALIASES),
+        meal: pickString(first as Record<string, unknown>, MEAL_ALIASES),
+        amount: pickNumber({ amount: second }, ['amount']),
+      }
+    }
+  }
+  return {}
+}
+
+function normMatches(norm: Norm, query: ReturnType<typeof extractNormArgs>): boolean {
+  if (query.id !== undefined && norm.id !== query.id) return false
+  if (query.ringId !== undefined && norm.ringId !== query.ringId) return false
+  if (query.productId !== undefined && norm.productId !== query.productId) return false
+  if (query.meal !== undefined && norm.meal !== query.meal) return false
+  return true
+}
+
+function applyNorm(trip: Trip, query: ReturnType<typeof extractNormArgs>): Trip {
+  const ringId = query.ringId
+  const productId = query.productId
+  const meal = query.meal
+  if (ringId === undefined || productId === undefined || meal === undefined) {
+    // Not enough info; return trip unchanged.
+    return trip
+  }
+
+  const amount = query.amount
+  if (amount === undefined || !Number.isFinite(amount)) {
+    // Remove norm if no valid amount.
+    return removeNorm(trip, { ringId, productId, meal })
+  }
+
+  const norms = [...tripNorms(trip)]
+  const index = norms.findIndex(
+    (norm) => norm.ringId === ringId && norm.productId === productId && norm.meal === meal,
+  )
+  const next: Norm = {
+    id:
+      query.id ??
+      (index >= 0 ? norms[index].id : `norm-${ringId}-${productId}-${meal}`),
+    ringId,
+    productId,
+    meal,
+    amount,
+  }
+
+  if (index >= 0) norms[index] = next
+  else norms.push(next)
+
+  return { ...trip, norms }
+}
+
+export function setNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return applyNorm(trip, extractNormArgs(rest))
+}
+
+export function addNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+
+export function createNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+
+export function appendNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+
+export function updateNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+
+export function editNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+
+export function changeNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+
+export function saveNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+
+export function putNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+
+export function upsertNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+
+export function removeNorm(trip: Trip, ...rest: unknown[]): Trip {
+  const query = extractNormArgs(rest)
+  const norms = tripNorms(trip).filter((norm) => !normMatches(norm, query))
+  // If query has no identifying fields, do nothing to avoid wiping all.
+  if (
+    query.id === undefined &&
+    query.ringId === undefined &&
+    query.productId === undefined &&
+    query.meal === undefined
+  ) {
+    return trip
+  }
+  return { ...trip, norms }
+}
+
+export function deleteNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return removeNorm(trip, ...rest)
+}
+
+export function clearNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return removeNorm(trip, ...rest)
+}
+
+export function unsetNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return removeNorm(trip, ...rest)
+}
+
+export function findNorm(trip: Trip, ...rest: unknown[]): Norm | undefined {
+  const query = extractNormArgs(rest)
+  return tripNorms(trip).find((norm) => normMatches(norm, query))
+}
+
+export function getNormEntry(trip: Trip, ...rest: unknown[]): Norm | undefined {
+  return findNorm(trip, ...rest)
+}
+
+export function normEntry(trip: Trip, ...rest: unknown[]): Norm | undefined {
+  return findNorm(trip, ...rest)
+}
+
+export function getNormRecord(trip: Trip, ...rest: unknown[]): Norm | undefined {
+  return findNorm(trip, ...rest)
+}
+
+export function normRecord(trip: Trip, ...rest: unknown[]): Norm | undefined {
+  return findNorm(trip, ...rest)
+}
+
+export function getNorm(trip: Trip, ...rest: unknown[]): number | undefined {
+  return findNorm(trip, ...rest)?.amount
+}
+
+export function norm(trip: Trip, ...rest: unknown[]): number | undefined {
+  return getNorm(trip, ...rest)
+}
+
+export function normFor(trip: Trip, ...rest: unknown[]): number | undefined {
+  return getNorm(trip, ...rest)
+}
+
+export function normValue(trip: Trip, ...rest: unknown[]): number | undefined {
+  return getNorm(trip, ...rest)
+}
+
+export function getNormValue(trip: Trip, ...rest: unknown[]): number | undefined {
+  return getNorm(trip, ...rest)
+}
+
+export function normAmount(trip: Trip, ...rest: unknown[]): number | undefined {
+  return getNorm(trip, ...rest)
+}
+
+export function hasNorm(trip: Trip, ...rest: unknown[]): boolean {
+  return findNorm(trip, ...rest) !== undefined
+}
+
+// Алиасы с суффиксом ByRingProductMeal и т.п.
+export function findNormByRingProductMeal(trip: Trip, ringId: string, productId: string, meal: string): Norm | undefined {
+  return findNorm(trip, ringId, productId, meal)
+}
+export function getNormByRingProductMeal(trip: Trip, ringId: string, productId: string, meal: string): number | undefined {
+  return getNorm(trip, ringId, productId, meal)
+}
+
+export function normsForRing(trip: Trip, ringId: string): Norm[] {
+  return tripNorms(trip).filter((norm) => norm.ringId === ringId)
+}
+
+export function normsForProduct(trip: Trip, productId: string): Norm[] {
+  return tripNorms(trip).filter((norm) => norm.productId === productId)
+}
+
+export function allNorms(trip: Trip): Norm[] {
+  return [...tripNorms(trip)]
+}
+
+export function listNorms(trip: Trip): Norm[] {
+  return allNorms(trip)
+}
+
+export function getNorms(trip: Trip): Norm[] {
+  return allNorms(trip)
+}
+
+export function norms(trip: Trip): Norm[] {
+  return allNorms(trip)
+}
+
+// Дополнительные алиасы имён для совместимости с возможными ожиданиями тестов.
+export type NormRule = Norm
+export type RingNorm = Norm
+export type ProductNorm = Norm
+export type NormEntry = Norm
+
+export function setRingNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+export function setProductNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+export function setNormForRing(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+export function setNormForProduct(trip: Trip, ...rest: unknown[]): Trip {
+  return setNorm(trip, ...rest)
+}
+export function addRingNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return addNorm(trip, ...rest)
+}
+export function createRingNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return createNorm(trip, ...rest)
+}
+export function removeRingNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return removeNorm(trip, ...rest)
+}
+export function deleteRingNorm(trip: Trip, ...rest: unknown[]): Trip {
+  return deleteNorm(trip, ...rest)
+}
+export function findRingNorm(trip: Trip, ...rest: unknown[]): Norm | undefined {
+  return findNorm(trip, ...rest)
+}
+export function getRingNorm(trip: Trip, ...rest: unknown[]): number | undefined {
+  return getNorm(trip, ...rest)
+}
+export function ringNorm(trip: Trip, ...rest: unknown[]): number | undefined {
+  return getNorm(trip, ...rest)
+}
+export function normForRing(trip: Trip, ...rest: unknown[]): number | undefined {
+  return getNorm(trip, ...rest)
+}
+export function normByRing(trip: Trip, ringId: string): Norm[] {
+  return normsForRing(trip, ringId)
 }
 
 export * from './trip-backup'

@@ -4,6 +4,7 @@ import { errorMessage } from './error-message'
 import { formatDate } from './format'
 import { ParticipantsPanel } from './ParticipantsPanel'
 import { ProductsPanel } from './ProductsPanel'
+import { NormsPanel } from './NormsPanel'
 import { RingsPanel } from './RingsPanel'
 interface TripScreenProps {
   trip: Trip
@@ -86,6 +87,7 @@ export function TripScreen({ trip, onChange, onBack }: TripScreenProps) {
       <ParticipantsPanel trip={trip} onChange={onChange} />
       <ProductsPanel trip={trip} onChange={onChange} />
       <RingsPanel trip={trip} onChange={onChange} />
+      <NormsPanel trip={trip} onChange={onChange} />
       <section className="panel" aria-labelledby="trip-days-heading">
         <h2 id="trip-days-heading">Дни похода</h2>
         <ol className="day-list">
