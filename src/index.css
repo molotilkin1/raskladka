@@ -192,6 +192,25 @@ input:focus-visible {
   border-radius: 9px;
 }
 
+.ring-delete-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: #a3382c;
+  background: #fffdf8;
+  border: 1px solid #c8cec9;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.ring-delete-button:hover {
+  border-color: #a3382c;
+  background: #fbe4df;
+}
+
 .ring-days-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
