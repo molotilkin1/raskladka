@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { tripDays, updateTrip, type Trip, type TripChanges } from '../domain/trip'
 import { errorMessage } from './error-message'
 import { formatDate } from './format'
+import { ParticipantsPanel } from './ParticipantsPanel'
 
 interface TripScreenProps {
   trip: Trip
@@ -80,6 +81,8 @@ export function TripScreen({ trip, onChange, onBack }: TripScreenProps) {
           </p>
         )}
       </section>
+
+      <ParticipantsPanel trip={trip} onChange={onChange} />
 
       <section className="panel" aria-labelledby="trip-days-heading">
         <h2 id="trip-days-heading">Дни похода</h2>

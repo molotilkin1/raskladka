@@ -96,6 +96,7 @@ h2 {
 
 .trip-card:focus-visible,
 .primary:focus-visible,
+.secondary:focus-visible,
 .back:focus-visible,
 input:focus-visible {
   outline: 3px solid #8fb8a9;
@@ -119,12 +120,15 @@ input:focus-visible {
   gap: 12px;
 }
 
-.trip-form label {
+.trip-form label,
+.participant-form label {
   color: #44534d;
   font-size: 0.95rem;
 }
 
-.trip-form input {
+.trip-form input,
+.participant-form input,
+.participant-row input {
   width: 100%;
   padding: 9px 11px;
   color: inherit;
@@ -135,6 +139,33 @@ input:focus-visible {
 
 .trip-form button {
   grid-column: 2;
+  justify-self: start;
+}
+
+.participant-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.participant-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.participant-form {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.participant-form button {
   justify-self: start;
 }
 
@@ -154,6 +185,19 @@ input:focus-visible {
 .primary:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.secondary {
+  padding: 8px 14px;
+  color: #2f5d50;
+  background: #fffdf8;
+  border: 1px solid #c8cec9;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.secondary:hover {
+  border-color: #2f5d50;
 }
 
 .back {
@@ -216,6 +260,15 @@ input:focus-visible {
 
   .trip-form button {
     grid-column: 1;
+    margin-top: 8px;
+  }
+
+  .participant-form {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .participant-form button {
     margin-top: 8px;
   }
 }

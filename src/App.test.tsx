@@ -128,6 +128,97 @@ describe('приложение: походы', () => {
   })
 })
 
+describe('приложение: участники', () => {
+  it('добавляет, переименовывает и удаляет участников', async () => {
+    const store = new MemoryTripStore()
+    await store.create(makeTrip())
+    const user = userEvent.setup()
+    render(<App store={store} />)
+
+    await user.click(
+      await screen.findByRole('button', { name: /Камчатка 2025/ }),
+    )
+    expect(
+      screen.getByRole('heading', { name: 'Участники (0)' }),
+    ).toBeInTheDocument()
+
+    const addName = screen.getByLabelText('Имя участника')
+    await user.type(addName, 'Аня')
+    await user.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    expect(
+      screen.getByRole('heading', { name: 'Участники (1)' }),
+    ).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Аня')).toBeInTheDocument()
+    expect(addName).toHaveValue('')
+
+    await user.type(addName, 'Боря')
+    await user.click(screen.getByRole('button', { name: 'Добавить' }))
+    expect(
+      screen.getByRole('heading', { name: 'Участники (2)' }),
+    ).toBeInTheDocument()
+
+    const anya = screen.getByDisplayValue('Аня')
+    await user.clear(anya)
+    await user.type(anya, 'Анна')
+    await user.tab()
+    expect(screen.getByDisplayValue('Анна')).toBeInTheDocument()
+
+    await user.click(
+      screen.getByRole('button', { name: 'Удалить участника Боря' }),
+    )
+    expect(screen.queryByDisplayValue('Боря')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Участники (1)' }),
+    ).toBeInTheDocument()
+
+    await user.type(addName, '   ')
+    await user.click(screen.getByRole('button', { name: 'Добавить' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/имя/i)
+    expect(
+      screen.getByRole('heading', { name: 'Участники (1)' }),
+    ).toBeInTheDocument()
+  })
+
+  it('восстанавливает участников и их число после перезагрузки', async () => {
+    const store = new MemoryTripStore()
+    await store.create(makeTrip())
+    const user = userEvent.setup()
+    const view = render(<App store={store} />)
+
+    await user.click(
+      await screen.findByRole('button', { name: /Камчатка 2025/ }),
+    )
+    const addName = screen.getByLabelText('Имя участника')
+    await user.type(addName, 'Аня')
+    await user.click(screen.getByRole('button', { name: 'Добавить' }))
+    await user.type(addName, 'Боря')
+    await user.click(screen.getByRole('button', { name: 'Добавить' }))
+
+    await waitFor(
+      async () => {
+        expect((await store.load('trip-1'))?.participants).toEqual([
+          { id: expect.any(String), name: 'Аня' },
+          { id: expect.any(String), name: 'Боря' },
+        ])
+      },
+      { timeout: 2000 },
+    )
+
+    view.unmount()
+    render(<App store={store} />)
+    await user.click(
+      await screen.findByRole('button', { name: /Камчатка 2025/ }),
+    )
+
+    expect(
+      screen.getByRole('heading', { name: 'Участники (2)' }),
+    ).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Аня')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Боря')).toBeInTheDocument()
+  })
+})
+
 class FailingSaveStore extends MemoryTripStore {
   override async save(_trip: Trip): Promise<void> {
     throw new Error('Хранилище недоступно')

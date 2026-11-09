@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   DomainError,
+  addParticipant,
   createTrip,
   dayDate,
+  participantCount,
+  removeParticipant,
+  renameParticipant,
   tripDays,
   updateTrip,
   type Trip,
@@ -89,6 +93,69 @@ describe('дни похода', () => {
 
   it('не принимает номер дня меньше одного', () => {
     expect(() => dayDate('2026-07-12', 0)).toThrow(DomainError)
+  })
+})
+
+describe('участники', () => {
+  it('добавляет участника по имени с обрезанными пробелами', () => {
+    const trip = addParticipant(makeTrip(), { id: 'p-1', name: '  Аня  ' })
+
+    expect(trip.participants).toEqual([{ id: 'p-1', name: 'Аня' }])
+    expect(participantCount(trip)).toBe(1)
+  })
+
+  it('не принимает пустое имя участника', () => {
+    expect(() =>
+      addParticipant(makeTrip(), { id: 'p-1', name: '   ' }),
+    ).toThrow(/имя/i)
+  })
+
+  it('переименовывает участника, не меняя исходный поход', () => {
+    const original = addParticipant(makeTrip(), { id: 'p-1', name: 'Аня' })
+
+    const renamed = renameParticipant(original, 'p-1', '  Анна  ')
+
+    expect(renamed.participants).toEqual([{ id: 'p-1', name: 'Анна' }])
+    expect(original.participants).toEqual([{ id: 'p-1', name: 'Аня' }])
+  })
+
+  it('не принимает пустое имя при переименовании', () => {
+    const trip = addParticipant(makeTrip(), { id: 'p-1', name: 'Аня' })
+
+    expect(() => renameParticipant(trip, 'p-1', '  ')).toThrow(/имя/i)
+  })
+
+  it('удаляет участника', () => {
+    const trip = addParticipant(
+      addParticipant(makeTrip(), { id: 'p-1', name: 'Аня' }),
+      { id: 'p-2', name: 'Боря' },
+    )
+
+    const next = removeParticipant(trip, 'p-1')
+
+    expect(next.participants).toEqual([{ id: 'p-2', name: 'Боря' }])
+    expect(participantCount(next)).toBe(1)
+  })
+
+  it('добавление, переименование и удаление меняют число участников', () => {
+    let trip = makeTrip()
+    expect(participantCount(trip)).toBe(0)
+
+    trip = addParticipant(trip, { id: 'p-1', name: 'Аня' })
+    expect(participantCount(trip)).toBe(1)
+
+    trip = renameParticipant(trip, 'p-1', 'Анна')
+    expect(participantCount(trip)).toBe(1)
+
+    trip = removeParticipant(trip, 'p-1')
+    expect(participantCount(trip)).toBe(0)
+  })
+
+  it('не даёт переименовать или удалить неизвестного участника', () => {
+    const trip = addParticipant(makeTrip(), { id: 'p-1', name: 'Аня' })
+
+    expect(() => renameParticipant(trip, 'missing', 'Анна')).toThrow(DomainError)
+    expect(() => removeParticipant(trip, 'missing')).toThrow(DomainError)
   })
 })
 

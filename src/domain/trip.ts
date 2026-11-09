@@ -35,6 +35,8 @@ export type DomainErrorCode =
   | 'start-date-invalid'
   | 'day-count-invalid'
   | 'day-number-invalid'
+  | 'participant-name-required'
+  | 'participant-not-found'
 
 const messages: Record<DomainErrorCode, string> = {
   'trip-id-required': 'Не задан идентификатор похода.',
@@ -42,6 +44,8 @@ const messages: Record<DomainErrorCode, string> = {
   'start-date-invalid': 'Укажите корректную дату начала похода.',
   'day-count-invalid': 'Число дней должно быть целым числом не меньше 1.',
   'day-number-invalid': 'Номер дня должен быть целым числом не меньше 1.',
+  'participant-name-required': 'Укажите имя участника.',
+  'participant-not-found': 'Участник не найден.',
 }
 
 export class DomainError extends Error {
@@ -126,6 +130,75 @@ export function createTrip(input: TripDraft & { id: string }): Trip {
     dayCount: input.dayCount,
     participants: [],
   }
+}
+
+function normalizedParticipantName(name: string): string {
+  const trimmed = name.trim()
+  if (trimmed === '') {
+    throw new DomainError('participant-name-required')
+  }
+  return trimmed
+}
+
+function participantIndex(trip: Trip, participantId: string): number {
+  const index = trip.participants.findIndex(
+    (participant) => participant.id === participantId,
+  )
+  if (index === -1) {
+    throw new DomainError('participant-not-found')
+  }
+  return index
+}
+
+/**
+ * Добавляет участника с обрезанным именем.
+ * Идентификатор приходит снаружи, чтобы домен оставался чистым.
+ */
+export function addParticipant(trip: Trip, participant: Participant): Trip {
+  return {
+    ...trip,
+    participants: [
+      ...trip.participants,
+      { id: participant.id, name: normalizedParticipantName(participant.name) },
+    ],
+  }
+}
+
+/** Переименовывает участника, проверяя новое имя. */
+export function renameParticipant(
+  trip: Trip,
+  participantId: string,
+  name: string,
+): Trip {
+  const index = participantIndex(trip, participantId)
+  const normalized = normalizedParticipantName(name)
+
+  return {
+    ...trip,
+    participants: trip.participants.map((participant, current) =>
+      current === index ? { ...participant, name: normalized } : participant,
+    ),
+  }
+}
+
+/**
+ * Удаляет участника. Пока назначений нет, подтверждение не требуется;
+ * проверка назначений появится вместе с распределением.
+ */
+export function removeParticipant(trip: Trip, participantId: string): Trip {
+  participantIndex(trip, participantId)
+
+  return {
+    ...trip,
+    participants: trip.participants.filter(
+      (participant) => participant.id !== participantId,
+    ),
+  }
+}
+
+/** Число людей для расчётов веса: длина списка участников. */
+export function participantCount(trip: Trip): number {
+  return trip.participants.length
 }
 
 /** Меняет параметры похода, сохраняя участников и проверяя инварианты. */
