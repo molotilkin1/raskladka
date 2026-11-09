@@ -1,7 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { Trip } from '../domain/trip'
 import { sortTrips, type TripStore } from './trip-store'
-import { parseTripBackup, tripToBackupJson } from './trip-backup'
+import { parseTripBackup, tripToBackupJson } from '../domain/trip-backup'
 
 interface RaskladkaDatabase extends DBSchema {
   trips: {

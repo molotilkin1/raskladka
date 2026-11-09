@@ -1,6 +1,6 @@
 import type { Trip } from '../domain/trip'
 import { sortTrips, type TripStore } from './trip-store'
-import { parseTripBackup, tripToBackupJson } from './trip-backup'
+import { parseTripBackup, tripToBackupJson } from '../domain/trip-backup'
 
 function cloneTrip(trip: Trip): Trip {
   return structuredClone(trip)
