@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { dayDate } from '../domain/trip'
 import {
   setRings,
   uncoveredDays,
@@ -6,6 +7,7 @@ import {
   type Trip,
 } from '../domain/trip'
 import { errorMessage } from './error-message'
+import { formatDate } from './format'
 
 interface RingsPanelProps {
   trip: Trip
@@ -44,86 +46,99 @@ export function RingsPanel({ trip, onChange }: RingsPanelProps) {
         <ul className="ring-list">
           {rings.map((ring) => (
             <li key={ring.id} className="ring-row">
-              <label htmlFor={`ring-title-${ring.id}`}>Название кольца</label>
-              <input
-                id={`ring-title-${ring.id}`}
-                value={ring.title}
-                onChange={(event) =>
-                  commit(
-                    rings.map((item) =>
-                      item.id === ring.id
-                        ? { ...item, title: event.target.value }
-                        : item,
-                    ),
-                  )
-                }
-                autoComplete="off"
-              />
-
-              <label htmlFor={`ring-first-${ring.id}`}>Первый день</label>
-              <input
-                id={`ring-first-${ring.id}`}
-                type="number"
-                min={1}
-                max={trip.dayCount}
-                step={1}
-                value={ring.firstDay}
-                onChange={(event) =>
-                  commit(
-                    rings.map((item) =>
-                      item.id === ring.id
-                        ? { ...item, firstDay: Number(event.target.value) }
-                        : item,
-                    ),
-                  )
-                }
-              />
-
-              <label htmlFor={`ring-last-${ring.id}`}>Последний день</label>
-              <input
-                id={`ring-last-${ring.id}`}
-                type="number"
-                min={1}
-                max={trip.dayCount}
-                step={1}
-                value={ring.lastDay}
-                onChange={(event) =>
-                  commit(
-                    rings.map((item) =>
-                      item.id === ring.id
-                        ? { ...item, lastDay: Number(event.target.value) }
-                        : item,
-                    ),
-                  )
-                }
-              />
-
-              <label htmlFor={`ring-drop-${ring.id}`}>
+              <div className="ring-title-row">
+                <label htmlFor={`ring-title-${ring.id}`}>Название кольца</label>
                 <input
-                  id={`ring-drop-${ring.id}`}
-                  type="checkbox"
-                  checked={ring.drop}
+                  id={`ring-title-${ring.id}`}
+                  value={ring.title}
                   onChange={(event) =>
                     commit(
                       rings.map((item) =>
                         item.id === ring.id
-                          ? { ...item, drop: event.target.checked }
+                          ? { ...item, title: event.target.value }
                           : item,
                       ),
                     )
                   }
+                  autoComplete="off"
                 />
-                Заброска
-              </label>
+                <button
+                  type="button"
+                  className="secondary"
+                  aria-label={`Удалить кольцо ${ring.title}`}
+                  onClick={() => commit(rings.filter((item) => item.id !== ring.id))}
+                >
+                  Удалить
+                </button>
+              </div>
 
-              <button
-                type="button"
-                className="secondary"
-                aria-label={`Удалить кольцо ${ring.title}`}
-                onClick={() => commit(rings.filter((item) => item.id !== ring.id))}
-              >
-                Удалить
-              </button>
+              <div className="ring-days-row">
+                <div className="ring-day">
+                  <label htmlFor={`ring-first-${ring.id}`}>Первый день</label>
+                  <input
+                    id={`ring-first-${ring.id}`}
+                    type="number"
+                    min={1}
+                    max={trip.dayCount}
+                    step={1}
+                    value={ring.firstDay}
+                    onChange={(event) =>
+                      commit(
+                        rings.map((item) =>
+                          item.id === ring.id
+                            ? { ...item, firstDay: Number(event.target.value) }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                  <span className="ring-day-date">
+                    {formatDate(dayDate(trip.startDate, ring.firstDay))}
+                  </span>
+                </div>
+
+                <div className="ring-day">
+                  <label htmlFor={`ring-last-${ring.id}`}>Последний день</label>
+                  <input
+                    id={`ring-last-${ring.id}`}
+                    type="number"
+                    min={1}
+                    max={trip.dayCount}
+                    step={1}
+                    value={ring.lastDay}
+                    onChange={(event) =>
+                      commit(
+                        rings.map((item) =>
+                          item.id === ring.id
+                            ? { ...item, lastDay: Number(event.target.value) }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                  <span className="ring-day-date">
+                    {formatDate(dayDate(trip.startDate, ring.lastDay))}
+                  </span>
+                </div>
+
+                <label className="ring-drop" htmlFor={`ring-drop-${ring.id}`}>
+                  <input
+                    id={`ring-drop-${ring.id}`}
+                    type="checkbox"
+                    checked={ring.drop}
+                    onChange={(event) =>
+                      commit(
+                        rings.map((item) =>
+                          item.id === ring.id
+                            ? { ...item, drop: event.target.checked }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                  Заброска
+                </label>
+              </div>
             </li>
           ))}
         </ul>

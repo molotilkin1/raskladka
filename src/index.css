@@ -150,6 +150,89 @@ input:focus-visible {
   list-style: none;
 }
 
+.ring-list {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ring-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #ddd6c9;
+}
+
+.ring-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.ring-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.ring-title-row label {
+  color: #44534d;
+  font-size: 0.95rem;
+}
+
+.ring-title-row input {
+  width: 100%;
+  padding: 9px 11px;
+  color: inherit;
+  background: #ffffff;
+  border: 1px solid #c8cec9;
+  border-radius: 9px;
+}
+
+.ring-days-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.ring-day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ring-day label {
+  color: #44534d;
+  font-size: 0.95rem;
+}
+
+.ring-day input {
+  width: 100%;
+  padding: 9px 11px;
+  color: inherit;
+  background: #ffffff;
+  border: 1px solid #c8cec9;
+  border-radius: 9px;
+}
+
+.ring-day-date {
+  font-size: 0.8rem;
+  color: #61706a;
+}
+
+.ring-drop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #44534d;
+  font-size: 0.95rem;
+  padding-bottom: 10px;
+}
+
 .participant-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
