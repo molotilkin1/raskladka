@@ -19,6 +19,7 @@ function makeTrip(overrides: Partial<Trip> = {}): Trip {
     startDate: '2026-07-12',
     dayCount: 3,
     participants: [],
+    products: [],
     rings: [{ id: 'ring-1', title: 'Кольцо 1', firstDay: 1, lastDay: 3, drop: false }],
     ...overrides,
   }
@@ -39,6 +40,7 @@ describe('createTrip', () => {
       startDate: '2026-07-12',
       dayCount: 13,
       participants: [],
+      products: [],
       rings: [{ id: 'ring-1', title: 'Кольцо 1', firstDay: 1, lastDay: 13, drop: false }],
     })
   })

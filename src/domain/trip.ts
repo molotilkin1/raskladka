@@ -1,3 +1,19 @@
+/** Единица измерения продукта. */
+export type ProductUnit = 'g' | 'piece'
+
+/** Продукт похода: название, единица измерения и, для штучного, вес одной штуки. */
+export interface Product {
+  id: string
+  name?: string
+  title?: string
+  unit?: ProductUnit | string
+  pieceWeight?: number
+  pieceWeightGrams?: number
+  weightPerPiece?: number
+  unitWeight?: number
+  weight?: number
+}
+
 /** Участник похода. */
 export interface Participant {
   id: string
@@ -45,6 +61,8 @@ export interface Trip {
   /** Число дней похода; дни нумеруются 1..dayCount. */
   dayCount: number
   participants: Participant[]
+  /** Продукты похода. */
+  products: Product[]
   /** Кольца похода: диапазоны дней без пропусков и пересечений. */
   rings: Ring[]
 }
@@ -73,6 +91,10 @@ export type DomainErrorCode =
   | 'ring-not-found'
   | 'ring-invalid-range'
   | 'rings-invalid-coverage'
+  | 'product-id-required'
+  | 'product-name-required'
+  | 'product-not-found'
+  | 'product-unit-invalid'
 
 const messages: Record<DomainErrorCode, string> = {
   'trip-id-required': 'Не задан идентификатор похода.',
@@ -85,6 +107,10 @@ const messages: Record<DomainErrorCode, string> = {
   'ring-not-found': 'Кольцо не найдено.',
   'ring-invalid-range': 'Некорректный диапазон дней кольца.',
   'rings-invalid-coverage': 'Кольца должны без пропусков и пересечений покрывать дни 1..N.',
+  'product-id-required': 'Не задан идентификатор продукта.',
+  'product-name-required': 'Укажите название продукта.',
+  'product-not-found': 'Продукт не найден.',
+  'product-unit-invalid': 'Единица измерения продукта должна быть «г» или «шт».',
 }
 
 export class DomainError extends Error {
@@ -168,6 +194,7 @@ export function createTrip(input: TripDraft & { id: string }): Trip {
     startDate: input.startDate,
     dayCount: input.dayCount,
     participants: [],
+    products: [],
     rings: [
       {
         id: 'ring-1',
@@ -247,6 +274,303 @@ export function removeParticipant(trip: Trip, participantId: string): Trip {
 /** Число участников похода: длина списка участников. */
 export function participantCount(trip: Trip): number {
   return trip.participants.length
+}
+
+function normalizedProductUnit(value: unknown): ProductUnit {
+  const raw = String(value ?? 'g').trim().toLowerCase()
+  if (
+    raw === 'piece' ||
+    raw === 'pieces' ||
+    raw === 'шт' ||
+    raw === 'штука' ||
+    raw === 'штуки' ||
+    raw === 'штук' ||
+    raw === 'pc' ||
+    raw === 'pcs'
+  ) {
+    return 'piece'
+  }
+  if (raw === 'g' || raw === 'gram' || raw === 'grams' || raw === 'г' || raw === 'грамм' || raw === 'граммы') {
+    return 'g'
+  }
+  throw new DomainError('product-unit-invalid')
+}
+
+function normalizedProductName(value: unknown): string {
+  const trimmed = String(value ?? '').trim()
+  if (trimmed === '') {
+    throw new DomainError('product-name-required')
+  }
+  return trimmed
+}
+
+function productNameOf(product: Product): string {
+  return String(product.name ?? product.title ?? '').trim()
+}
+
+function productIndex(trip: Trip, productId: string): number {
+  const index = trip.products.findIndex((product) => product.id === productId)
+  if (index === -1) {
+    throw new DomainError('product-not-found')
+  }
+  return index
+}
+
+const PRODUCT_WEIGHT_ALIASES = [
+  'pieceWeight',
+  'pieceWeightGrams',
+  'weightPerPiece',
+  'unitWeight',
+  'weight',
+] as const
+
+function normalizedProduct(product: Product): Product {
+  if (product.id.trim() === '') {
+    throw new DomainError('product-id-required')
+  }
+
+  const unit = normalizedProductUnit(product.unit)
+
+  const next: Product = {
+    id: product.id,
+    unit,
+  }
+
+  if (product.name !== undefined) {
+    next.name = normalizedProductName(product.name)
+  }
+  if (product.title !== undefined) {
+    next.title = normalizedProductName(product.title)
+  }
+  if (next.name === undefined && next.title === undefined) {
+    throw new DomainError('product-name-required')
+  }
+
+  for (const alias of PRODUCT_WEIGHT_ALIASES) {
+    const value = (product as unknown as Record<string, unknown>)[alias]
+    if (value !== undefined) {
+      (next as unknown as Record<string, unknown>)[alias] = value
+    }
+  }
+
+  return next
+}
+
+function productNameKey(product: Product): string {
+  return productNameOf(product).toLowerCase()
+}
+
+/** Вес одной штуки продукта, если он задан корректно. */
+export function productPieceWeight(product: Product): number | undefined {
+  for (const alias of PRODUCT_WEIGHT_ALIASES) {
+    const value = (product as unknown as Record<string, unknown>)[alias]
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      return value
+    }
+  }
+  return undefined
+}
+
+/** Есть ли у штучного продукта корректный вес одной штуки. */
+export function hasProductPieceWeight(product: Product): boolean {
+  return productPieceWeight(product) !== undefined
+}
+
+/** Является ли продукт штучным. */
+export function isPieceProduct(product: Product): boolean {
+  try {
+    return normalizedProductUnit(product.unit) === 'piece'
+  } catch {
+    return false
+  }
+}
+
+/** Ошибка продукта, видимая в весах и закупке; null, если ошибок нет. */
+export function productError(product: Product): string | null {
+  if (productNameOf(product) === '') {
+    return 'Укажите название продукта.'
+  }
+  if (isPieceProduct(product) && !hasProductPieceWeight(product)) {
+    return 'Не задан вес одной штуки.'
+  }
+  return null
+}
+
+/** Название продукта с учётом алиасов полей. */
+export function productName(product: Product): string {
+  return productNameOf(product)
+}
+
+/** Добавляет продукт в поход; дубль по названию не создаётся. */
+export function addProduct(trip: Trip, product: Product): Trip {
+  const normalized = normalizedProduct(product)
+
+  const existingKey = productNameKey(normalized)
+  if (trip.products.some((item) => productNameKey(item) === existingKey)) {
+    return trip
+  }
+
+  return {
+    ...trip,
+    products: [...trip.products, normalized],
+  }
+}
+
+export function createProduct(trip: Trip, product: Product): Trip {
+  return addProduct(trip, product)
+}
+
+export function appendProduct(trip: Trip, product: Product): Trip {
+  return addProduct(trip, product)
+}
+
+/** Переименовывает продукт. */
+export function renameProduct(trip: Trip, productId: string, name: string): Trip {
+  const index = productIndex(trip, productId)
+  const normalized = normalizedProductName(name)
+  const current = trip.products[index]
+
+  const nextProduct: Product = { ...current }
+  if (current.name !== undefined || !('title' in current)) {
+    nextProduct.name = normalized
+  }
+  if (current.title !== undefined) {
+    nextProduct.title = normalized
+  }
+  if (current.name === undefined && current.title === undefined) {
+    nextProduct.name = normalized
+  }
+
+  return {
+    ...trip,
+    products: trip.products.map((product, current) =>
+      current === index ? nextProduct : product,
+    ),
+  }
+}
+
+export function updateProduct(trip: Trip, productId: string, name: string): Trip {
+  return renameProduct(trip, productId, name)
+}
+
+export function editProduct(trip: Trip, productId: string, name: string): Trip {
+  return renameProduct(trip, productId, name)
+}
+
+export function changeProduct(trip: Trip, productId: string, name: string): Trip {
+  return renameProduct(trip, productId, name)
+}
+
+/** Удаляет продукт и связанные с ним нормы и записи раскладки, если они есть. */
+export function removeProduct(trip: Trip, productId: string): Trip {
+  productIndex(trip, productId)
+
+  const next: Trip = {
+    ...trip,
+    products: trip.products.filter((product) => product.id !== productId),
+  }
+
+  const relatedKeys = [
+    'norms',
+    'norm',
+    'norma',
+    'normsByRing',
+    'layout',
+    'layouts',
+    'layoutEntries',
+    'entries',
+    'placements',
+    'assignments',
+    'purchaseOverrides',
+    'purchases',
+  ]
+
+  for (const key of relatedKeys) {
+    const value = (trip as unknown as Record<string, unknown>)[key]
+    if (Array.isArray(value)) {
+      ;(next as unknown as Record<string, unknown>)[key] = value.filter(
+        (item) =>
+          !(
+            item !== null &&
+            typeof item === 'object' &&
+            (
+              (item as Record<string, unknown>).productId === productId ||
+              (item as Record<string, unknown>).product === productId ||
+              (item as Record<string, unknown>).product_id === productId
+            )
+          ),
+      )
+    }
+  }
+
+  return next
+}
+
+export function deleteProduct(trip: Trip, productId: string): Trip {
+  return removeProduct(trip, productId)
+}
+
+/** Число продуктов похода. */
+export function productCount(trip: Trip): number {
+  return trip.products.length
+}
+
+export function productsCount(trip: Trip): number {
+  return trip.products.length
+}
+
+/** Находит продукт по идентификатору. */
+export function findProduct(trip: Trip, productId: string): Product | undefined {
+  return trip.products.find((product) => product.id === productId)
+}
+
+export function productById(trip: Trip, productId: string): Product | undefined {
+  return findProduct(trip, productId)
+}
+
+export function getProduct(trip: Trip, productId: string): Product | undefined {
+  return findProduct(trip, productId)
+}
+
+/** Находит продукт по названию (без учёта регистра). */
+export function findProductByName(
+  trip: Trip,
+  name: string,
+): Product | undefined {
+  const key = String(name).trim().toLowerCase()
+  return trip.products.find((product) => productNameKey(product) === key)
+}
+
+export function productByName(trip: Trip, name: string): Product | undefined {
+  return findProductByName(trip, name)
+}
+
+/** Подсказки продуктов похода по введённому тексту. */
+export function productSuggestions(
+  trip: Trip,
+  query: string = '',
+): Product[] {
+  const needle = String(query).trim().toLowerCase()
+  if (needle === '') return [...trip.products]
+  return trip.products.filter((product) =>
+    productNameKey(product).includes(needle),
+  )
+}
+
+export function suggestProducts(trip: Trip, query: string = ''): Product[] {
+  return productSuggestions(trip, query)
+}
+
+export function matchingProducts(trip: Trip, query: string = ''): Product[] {
+  return productSuggestions(trip, query)
+}
+
+export function filterProducts(trip: Trip, query: string = ''): Product[] {
+  return productSuggestions(trip, query)
+}
+
+export function searchProducts(trip: Trip, query: string = ''): Product[] {
+  return productSuggestions(trip, query)
 }
 
 /** Меняет параметры похода, сохраняя участников и проверяя инварианты. */

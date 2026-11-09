@@ -3,6 +3,7 @@ import { tripDays, updateTrip, type Trip, type TripChanges } from '../domain/tri
 import { errorMessage } from './error-message'
 import { formatDate } from './format'
 import { ParticipantsPanel } from './ParticipantsPanel'
+import { ProductsPanel } from './ProductsPanel'
 import { RingsPanel } from './RingsPanel'
 interface TripScreenProps {
   trip: Trip
@@ -83,6 +84,7 @@ export function TripScreen({ trip, onChange, onBack }: TripScreenProps) {
       </section>
 
       <ParticipantsPanel trip={trip} onChange={onChange} />
+      <ProductsPanel trip={trip} onChange={onChange} />
       <RingsPanel trip={trip} onChange={onChange} />
       <section className="panel" aria-labelledby="trip-days-heading">
         <h2 id="trip-days-heading">Дни похода</h2>
