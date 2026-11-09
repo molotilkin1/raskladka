@@ -17,6 +17,10 @@ export interface TripStore {
   save(trip: Trip): Promise<void>
   /** Удаляет поход; отсутствие похода не является ошибкой. */
   delete(id: string): Promise<void>
+  /** Сериализует один поход в JSON с полем версии формата. */
+  export(target: string | Trip): Promise<string>
+  /** Разбирает JSON резервной копии, создаёт поход в хранилище и возвращает его. */
+  import(data: string | unknown): Promise<Trip>
 }
 
 const titleCollator = new Intl.Collator('ru')

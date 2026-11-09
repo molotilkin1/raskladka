@@ -970,3 +970,5 @@ export function updateRings(trip: Trip, rings: Ring[]): Trip {
 export function setTripRings(trip: Trip, rings: Ring[]): Trip {
   return setRings(trip, rings)
 }
+
+export * from './trip-backup'

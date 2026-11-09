@@ -128,6 +128,14 @@ export function App({ store }: AppProps) {
     }
   }
 
+  async function handleImport(trip: Trip): Promise<void> {
+    setTrips((current) => {
+      const without = (current ?? []).filter((item) => item.id !== trip.id)
+      return sortTrips([...without, trip])
+    })
+    setOpenTripId(trip.id)
+  }
+
   function handleTripChange(next: Trip) {
     setTrips((current) =>
       current === null
@@ -192,8 +200,10 @@ export function App({ store }: AppProps) {
             )}
             <TripsScreen
               trips={trips}
+              store={store}
               onCreate={handleCreate}
               onOpen={setOpenTripId}
+              onImport={handleImport}
             />
           </>
         )}

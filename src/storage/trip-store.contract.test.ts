@@ -145,7 +145,60 @@ describe.each(implementations)('контракт TripStore: $name', ({ open }) =
     await store.save(makeTrip({ id: 'early-a', title: 'А', startDate: '2026-07-01' }))
 
     const trips = await store.list()
-
+ 
     expect(trips.map((trip) => trip.id)).toEqual(['early-a', 'early-b', 'late'])
+  })
+
+  it('экспортирует поход в JSON с версией формата', async () => {
+    const trip = makeTrip()
+    await store.create(trip)
+
+    const json = await store.export(trip.id)
+    const parsed = JSON.parse(json)
+
+    expect(parsed.version).toBe(1)
+    expect(parsed.trip).toEqual(trip)
+  })
+
+  it('выполняет round-trip экспорт → импорт', async () => {
+    const trip = makeTrip()
+    await store.create(trip)
+
+    const json = await store.export(trip.id)
+    await store.delete(trip.id)
+    const imported = await store.import(json)
+
+    expect(imported).toEqual(trip)
+    await expect(store.load(trip.id)).resolves.toEqual(trip)
+  })
+
+  it('отклоняет повреждённый файл и не меняет хранилище', async () => {
+    const trip = makeTrip()
+    await store.create(trip)
+    const before = await store.list()
+
+    await expect(store.import('{not json')).rejects.toThrow()
+    await expect(store.import(JSON.stringify({ version: 1 }))).rejects.toThrow()
+    await expect(store.import(JSON.stringify({ version: 999, trip }))).rejects.toThrow()
+
+    await expect(store.list()).resolves.toEqual(before)
+    await expect(store.load(trip.id)).resolves.toEqual(trip)
+  })
+
+  it('импорт не затрагивает другие походы', async () => {
+    const first = makeTrip({ id: 'trip-1' })
+    const second = makeTrip({ id: 'trip-2', title: 'Другой поход' })
+    await store.create(first)
+    await store.create(second)
+
+    const json = await store.export(first.id)
+    const imported = await store.import(json.replace('"trip-1"', '"trip-3"'))
+    // version stays valid; id rewritten to trip-3 should create new trip
+    expect(imported.id).toBe('trip-3')
+
+    const ids = (await store.list()).map((item) => item.id).sort()
+    expect(ids).toContain('trip-1')
+    expect(ids).toContain('trip-2')
+    expect(ids).toContain('trip-3')
   })
 })
