@@ -128,9 +128,15 @@ function ParticipantRow({
   }, [participant.name])
 
   function commit() {
-    if (name === participant.name) return
-    if (!onRename(participant, name)) {
+    const trimmed = name.trim()
+    if (trimmed === participant.name) {
       setName(participant.name)
+      return
+    }
+    if (!onRename(participant, trimmed)) {
+      setName(participant.name)
+    } else {
+      setName(trimmed)
     }
   }
 

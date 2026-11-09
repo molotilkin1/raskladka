@@ -196,7 +196,7 @@ export function removeParticipant(trip: Trip, participantId: string): Trip {
   }
 }
 
-/** Число людей для расчётов веса: длина списка участников. */
+/** Число участников похода: длина списка участников. */
 export function participantCount(trip: Trip): number {
   return trip.participants.length
 }
