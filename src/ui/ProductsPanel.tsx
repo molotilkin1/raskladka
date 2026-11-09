@@ -36,7 +36,7 @@ export function ProductsPanel({ trip, onChange }: ProductsPanelProps) {
       return
     }
 
-    const existing = trip.products.find(
+    const existing = (trip.products ?? []).find(
       (product) =>
         String(product.name ?? product.title ?? '')
           .trim()
@@ -93,11 +93,11 @@ export function ProductsPanel({ trip, onChange }: ProductsPanelProps) {
     <section className="panel" aria-labelledby="trip-products-heading">
       <h2 id="trip-products-heading">Продукты ({productCount(trip)})</h2>
 
-      {trip.products.length === 0 ? (
+      {(trip.products ?? []).length === 0 ? (
         <p className="empty">Продуктов пока нет.</p>
       ) : (
         <ul className="product-list">
-          {trip.products.map((product) => (
+          {(trip.products ?? []).map((product) => (
             <li key={product.id}>
               <ProductRow
                 product={product}
@@ -125,7 +125,7 @@ export function ProductsPanel({ trip, onChange }: ProductsPanelProps) {
           autoComplete="off"
         />
         <datalist id="product-suggestions">
-          {trip.products.map((product) => (
+          {(trip.products ?? []).map((product) => (
             <option
               key={product.id}
               value={String(product.name ?? product.title ?? '')}

@@ -308,8 +308,12 @@ function productNameOf(product: Product): string {
   return String(product.name ?? product.title ?? '').trim()
 }
 
+function tripProducts(trip: Trip): Product[] {
+  return trip.products ?? []
+}
+
 function productIndex(trip: Trip, productId: string): number {
-  const index = trip.products.findIndex((product) => product.id === productId)
+  const index = tripProducts(trip).findIndex((product) => product.id === productId)
   if (index === -1) {
     throw new DomainError('product-not-found')
   }
@@ -406,13 +410,13 @@ export function addProduct(trip: Trip, product: Product): Trip {
   const normalized = normalizedProduct(product)
 
   const existingKey = productNameKey(normalized)
-  if (trip.products.some((item) => productNameKey(item) === existingKey)) {
+  if (tripProducts(trip).some((item) => productNameKey(item) === existingKey)) {
     return trip
   }
 
   return {
     ...trip,
-    products: [...trip.products, normalized],
+    products: [...tripProducts(trip), normalized],
   }
 }
 
@@ -443,7 +447,7 @@ export function renameProduct(trip: Trip, productId: string, name: string): Trip
 
   return {
     ...trip,
-    products: trip.products.map((product, current) =>
+    products: tripProducts(trip).map((product, current) =>
       current === index ? nextProduct : product,
     ),
   }
@@ -467,7 +471,7 @@ export function removeProduct(trip: Trip, productId: string): Trip {
 
   const next: Trip = {
     ...trip,
-    products: trip.products.filter((product) => product.id !== productId),
+    products: tripProducts(trip).filter((product) => product.id !== productId),
   }
 
   const relatedKeys = [
@@ -512,16 +516,16 @@ export function deleteProduct(trip: Trip, productId: string): Trip {
 
 /** Число продуктов похода. */
 export function productCount(trip: Trip): number {
-  return trip.products.length
+  return tripProducts(trip).length
 }
 
 export function productsCount(trip: Trip): number {
-  return trip.products.length
+  return tripProducts(trip).length
 }
 
 /** Находит продукт по идентификатору. */
 export function findProduct(trip: Trip, productId: string): Product | undefined {
-  return trip.products.find((product) => product.id === productId)
+  return tripProducts(trip).find((product) => product.id === productId)
 }
 
 export function productById(trip: Trip, productId: string): Product | undefined {
@@ -538,7 +542,7 @@ export function findProductByName(
   name: string,
 ): Product | undefined {
   const key = String(name).trim().toLowerCase()
-  return trip.products.find((product) => productNameKey(product) === key)
+  return tripProducts(trip).find((product) => productNameKey(product) === key)
 }
 
 export function productByName(trip: Trip, name: string): Product | undefined {
@@ -551,8 +555,8 @@ export function productSuggestions(
   query: string = '',
 ): Product[] {
   const needle = String(query).trim().toLowerCase()
-  if (needle === '') return [...trip.products]
-  return trip.products.filter((product) =>
+  if (needle === '') return [...tripProducts(trip)]
+  return tripProducts(trip).filter((product) =>
     productNameKey(product).includes(needle),
   )
 }
